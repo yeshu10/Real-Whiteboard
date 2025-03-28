@@ -1,12 +1,15 @@
-import React from 'react';
+// src/App.jsx
+import { Routes, Route } from 'react-router-dom';
+import RoomAccess from './components/RoomAccess';
 import Canvas from './components/Canvas';
 
-const App = () => {
+function App() {
   return (
-    <div className="h-screen bg-gray-100">
-      <Canvas />
-    </div>
+    <Routes>
+      <Route path="/" element={<RoomAccess />} />
+      <Route path="/canvas" element={<Canvas />} />
+    </Routes>
   );
-};
+}
 
 export default App;
