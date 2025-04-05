@@ -24,6 +24,7 @@ import {
   setLastPos
 } from '../features/canvas/canvasSlice';
 import GameControls from './GameControls';
+import GameResults from './GameResults';
 import ChatBox from './ChatBox';
 import WordSelection from './WordSelection';
 import FlashMessage from './FlashMessage';
@@ -55,6 +56,7 @@ const Canvas = () => {
   const pointerSize = useSelector(state => state.canvas.pointerSize);
   const selectedColor = useSelector(state => state.canvas.selectedColor);
   const lastPos = useSelector(state => state.canvas.lastPos);
+  const [showResults, setShowResults] = React.useState(false);
 
   // Get room info from URL
   const location = useLocation();
@@ -164,6 +166,22 @@ const Canvas = () => {
       dispatch(setTimeLeft(seconds));
     });
 
+    socket.on('gameEnded', (users) => {
+      dispatch(setGameState('ended'));
+      dispatch(setUsers(users));
+      dispatch(setScore(users[socket.id]?.score || 0));
+      dispatch(addMessage({
+        isSystem: true,
+        message: 'Game ended! Final scores: ' + 
+          Object.values(users).map(u => `${u.username}: ${u.score}`).join(', ')
+      }));
+      
+      // Small delay to ensure smooth transition
+      setTimeout(() => {
+        setShowResults(true);
+      }, 1000);
+    });
+
     socket.on('correctGuess', ({ username, points, users, isRoundOver }) => {
       dispatch(setUsers(users));
       dispatch(setScore(users[socket.id]?.score || 0));
@@ -196,16 +214,16 @@ const Canvas = () => {
       }));
     });
 
-    socket.on('gameEnded', (users) => {
-      dispatch(setGameState('ended'));
-      dispatch(setUsers(users));
-      dispatch(setScore(users[socket.id]?.score || 0));
-      dispatch(addMessage({
-        isSystem: true,
-        message: 'Game ended! Final scores: ' + 
-          Object.values(users).map(u => `${u.username}: ${u.score}`).join(', ')
-      }));
-    });
+    // socket.on('gameEnded', (users) => {
+    //   dispatch(setGameState('ended'));
+    //   dispatch(setUsers(users));
+    //   dispatch(setScore(users[socket.id]?.score || 0));
+    //   dispatch(addMessage({
+    //     isSystem: true,
+    //     message: 'Game ended! Final scores: ' + 
+    //       Object.values(users).map(u => `${u.username}: ${u.score}`).join(', ')
+    //   }));
+    // });
 
     // Drawing events
     socket.on('draw', (data) => {
@@ -317,6 +335,11 @@ const Canvas = () => {
 
   const handleStartGame = (rounds = 3) => {
     socket.emit('startGame', roomId, rounds);
+    
+    if (isCreator) {
+      console.log("selection word")
+      dispatch(setGameState('wordSelection'));
+    }
   };
 
   const handleWordSelect = (difficulty) => {
@@ -452,6 +475,16 @@ const Canvas = () => {
       <div className="absolute bottom-4 left-4 bg-white px-4 py-2 rounded-lg shadow-md">
         Current drawer: {currentDrawer?.username || 'None'}
       </div>
+      {showResults && (
+        <GameResults 
+          users={Object.values(users)} 
+          onClose={() => {
+            setShowResults(false);
+            // Optional: navigate back to lobby
+            // navigate('/');
+          }} 
+        />
+      )}
     </div>
   );
 };
