@@ -1,20 +1,20 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// Initial state
 const initialState = {
   gameState: 'waiting',
   currentWord: '',
   isDrawingTurn: false,
-  messages: [],
   users: {},
   currentRound: 0,
   maxRounds: 3,
   timeLeft: 0,
-  currentDrawer: null
+  hasGuessed: false,
+  score: 0,
+  currentDrawer: null,
+  flashMessage: null
 };
 
-// Create slice
-const gameSlice = createSlice({
+export const gameSlice = createSlice({
   name: 'game',
   initialState,
   reducers: {
@@ -27,48 +27,52 @@ const gameSlice = createSlice({
     setIsDrawingTurn: (state, action) => {
       state.isDrawingTurn = action.payload;
     },
-    addMessage: (state, action) => {
-      state.messages.push(action.payload);
-    },
     setUsers: (state, action) => {
       state.users = action.payload;
     },
     setCurrentRound: (state, action) => {
       state.currentRound = action.payload;
     },
+    setMaxRounds: (state, action) => {
+      state.maxRounds = action.payload;
+    },
     setTimeLeft: (state, action) => {
       state.timeLeft = action.payload;
+    },
+    setHasGuessed: (state, action) => {
+      state.hasGuessed = action.payload;
+    },
+    setScore: (state, action) => {
+      state.score = action.payload;
     },
     setCurrentDrawer: (state, action) => {
       state.currentDrawer = action.payload;
     },
-    resetGame: () => initialState
+    setFlashMessage: (state, action) => {
+      state.flashMessage = action.payload;
+    },
+    updateUserScore: (state, action) => {
+      const { userId, score } = action.payload;
+      if (state.users[userId]) {
+        state.users[userId].score = score;
+      }
+    }
   }
 });
 
-// Export actions
 export const {
   setGameState,
   setCurrentWord,
   setIsDrawingTurn,
-  addMessage,
   setUsers,
   setCurrentRound,
+  setMaxRounds,
   setTimeLeft,
+  setHasGuessed,
+  setScore,
   setCurrentDrawer,
-  resetGame
+  setFlashMessage,
+  updateUserScore
 } = gameSlice.actions;
 
-// Selectors
-export const selectGameState = (state) => state.game.gameState;
-export const selectCurrentWord = (state) => state.game.currentWord;
-export const selectIsDrawingTurn = (state) => state.game.isDrawingTurn;
-export const selectMessages = (state) => state.game.messages;
-export const selectUsers = (state) => state.game.users;
-export const selectCurrentRound = (state) => state.game.currentRound;
-export const selectTimeLeft = (state) => state.game.timeLeft;
-export const selectCurrentDrawer = (state) => state.game.currentDrawer;
-export const selectMaxRounds = (state) => state.game.maxRounds;
-
-// Export reducer
 export default gameSlice.reducer;
