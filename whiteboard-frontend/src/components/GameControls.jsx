@@ -1,3 +1,71 @@
+// // In your GameControls.js file
+// const GameControls = ({
+//   isCreator,
+//   gameState,
+//   users,
+//   currentRound,
+//   maxRounds,
+//   timeLeft,
+//   currentDrawer,
+//   onStartGame,
+//   onWordSelect,
+//   onEndGame,
+//   isDrawingTurn,
+//   gameStarted // Add this new prop
+// }) => {
+//   return (
+//     <div className="fixed top-0 left-0 right-0 bg-gray-800 text-white p-2 flex justify-between items-center z-10">
+//       <div className="flex items-center space-x-4">
+//         {isCreator && (
+//           <>
+//             {gameState === 'waiting' && !gameStarted && (
+//               <button 
+//                 onClick={onStartGame}
+//                 className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+//               >
+//                 Start Game
+//               </button>
+//             )}
+//             {gameState !== 'ended' && gameStarted && (
+//               <button 
+//                 onClick={onEndGame}
+//                 className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+//               >
+//                 End Game
+//               </button>
+//             )}
+//           </>
+//         )}
+//       </div>
+      
+//       <div className="text-center">
+//         {gameStarted && (
+//           <>
+//             <div className="text-lg font-bold">
+//               Round {currentRound} of {maxRounds}
+//             </div>
+//             {timeLeft > 0 && (
+//               <div className="text-sm">
+//                 Time left: {timeLeft}s
+//               </div>
+//             )}
+//           </>
+//         )}
+//       </div>
+      
+//       <div className="text-right">
+//         {currentDrawer && (
+//           <div>
+//             Current drawer: {currentDrawer.username}
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+//  export default GameControls;
+
 import React, { useState, useEffect } from 'react';
 
 const GameControls = ({ 
