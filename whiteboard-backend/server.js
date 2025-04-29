@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
   });
 
   // Game control events
-  socket.on('startGame', (roomId, maxRounds = 3) => {
+  socket.on('startGame', (roomId, maxRounds) => {
     const room = gameRooms.get(roomId);
     if (room && socket.id === room.creator && room.gameState === 'waiting') {
       room.gameState = 'wordSelection';
@@ -310,6 +310,51 @@ io.on('connection', (socket) => {
       // Start next turn
       startTurn(roomId);
     }
+    socket.on('roundEnded', ({ users, currentRound }) => {
+      const room = gameRooms.get(roomId);
+    
+      // Reset game state for UI
+      setGameState('waiting');
+      setCurrentWord('');
+      setIsDrawingTurn(false);
+      setUsers(users);
+      setScore(users[socket.id]?.score || 0);
+      setMessages(prev => [...prev, {
+        isSystem: true,
+        message: `Round ${currentRound - 1} ended!`
+      }]);
+    
+      // Check if there are more rounds to play
+      if (currentRound < room.maxRounds) {
+        // Move to next round
+        room.currentRound = currentRound + 1;
+        room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.users.size;
+        room.currentDrawer = room.users[room.currentDrawerIndex];
+        
+        // Emit event to notify everyone of the new round
+        io.to(roomId).emit('roundStarted', {
+          currentRound: room.currentRound,
+          drawerId: room.currentDrawer.id
+        });
+    
+        // Notify the next drawer it's their turn
+        io.to(room.creator).emit('yourTurn');
+        io.to(roomId).emit('turnStarted', {
+          drawerId: room.currentDrawer.id,
+          drawerName: room.currentDrawer.username
+        });
+    
+        // Update the room state
+        updateRoomState(roomId);
+    
+      } else {
+        // Game over: Emit final score and end the game
+        io.to(roomId).emit('gameOver', { 
+          finalScores: users,
+          message: "The game has ended! Final scores are calculated."
+        });
+      }
+    });
     
     updateRoomState(roomId);
   }
@@ -354,6 +399,7 @@ io.on('connection', (socket) => {
 // Start Server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
 // const express = require('express');
 // const mongoose = require('mongoose');
 // const cors = require('cors');

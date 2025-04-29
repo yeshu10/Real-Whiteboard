@@ -151,13 +151,25 @@ const Canvas = () => {
     socket.emit('joinRoom', roomId, username);
 
     // Game event listeners
-    socket.on('userJoined', ({ users }) => {
+    // socket.on('userJoined', ({ users }) => {
+    //   setUsers(users);
+    //   console.log(users)
+    //   setMessages(prev => [...prev, {
+    //     isSystem: true,
+    //     message: `${users[socket.id]?.username} joined the game`
+    //   }]);
+    // });
+    socket.on('userJoined', ({ users, newUser }) => {
       setUsers(users);
-      setMessages(prev => [...prev, {
-        isSystem: true,
-        message: `${users[socket.id]?.username} joined the game`
-      }]);
+      setMessages(prev => [
+        ...prev,
+        {
+          isSystem: true,
+          message: `${newUser?.username || 'A user'} joined the game`
+        }
+      ]);
     });
+    
 
     socket.on('userLeft', ({ users, username }) => {
       setUsers(users);
@@ -260,6 +272,18 @@ const Canvas = () => {
       setMessages(prev => [...prev, msg]);
     });
 
+    // socket.on('roundEnded', ({ users, currentRound }) => {
+    //   setGameState('waiting');
+    //   setCurrentWord('');
+    //   setIsDrawingTurn(false);
+    //   setUsers(users);
+    //   setScore(users[socket.id]?.score || 0);
+    //   setMessages(prev => [...prev, {
+    //     isSystem: true,
+    //     message: `Round ${currentRound-1} ended!`
+    //   }]);
+    // });
+
     socket.on('roundEnded', ({ users, currentRound }) => {
       setGameState('waiting');
       setCurrentWord('');
@@ -268,10 +292,24 @@ const Canvas = () => {
       setScore(users[socket.id]?.score || 0);
       setMessages(prev => [...prev, {
         isSystem: true,
-        message: `Round ${currentRound} ended!`
+        message: `Round ${currentRound - 1} ended!`
       }]);
+    
+      // Handle next round or game over
+      if (currentRound < maxRounds) {
+        setMessages(prev => [...prev, {
+          isSystem: true,
+          message: `Round ${currentRound} is starting!`
+        }]);
+        // Update UI for new round if necessary
+      } else {
+        setMessages(prev => [...prev, {
+          isSystem: true,
+          message: "Game Over! Final scores are being calculated."
+        }]);
+      }
     });
-
+    
     socket.on('gameEnded', (users) => {
       setGameState('ended');
       setUsers(users);
@@ -318,7 +356,7 @@ const Canvas = () => {
     };
   }, []);
 
-  const handleStartGame = (rounds = 3) => {
+  const handleStartGame = (rounds) => {
     socket.emit('startGame', roomId, rounds);
   };
 
