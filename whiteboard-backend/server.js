@@ -78,9 +78,10 @@ io.on('connection', (socket) => {
     console.log(`${username} joined room: ${roomId}`);
     
     // Notify room about new user
-    socket.to(roomId).emit('userJoined', { 
-      users: getUsersArray(room),
-      newUser: { id: socket.id, username }
+    io.to(roomId).emit('newMessage', {
+      isSystem: true,
+      username: 'System',
+      message: `${username} joined the room!`
     });
     
     // Send current room state to all users
@@ -222,6 +223,7 @@ io.on('connection', (socket) => {
     
     const isCorrect = message.toLowerCase() === room.currentWord.toLowerCase();
     
+    // Always send the raw message
     io.to(roomId).emit('newMessage', { 
       username, 
       message, 
@@ -233,17 +235,18 @@ io.on('connection', (socket) => {
       const points = calculatePoints(room.startTime);
       user.score += points;
       user.hasGuessed = true;
-      
       room.guessedUsers.push(socket.id);
       
-      io.to(roomId).emit('correctGuess', { 
-        username, 
-        points,
-        users: getUsersArray(room),
-        isRoundOver: room.guessedUsers.length === room.users.size - 1
+      // Send the correct guess notification
+      io.to(roomId).emit('newMessage', {
+        isSystem: true,
+        username: 'System',
+        message: `${username} guessed the word!`
       });
       
-      // If all users guessed, end turn early
+      // Hide the word from future messages
+      room.currentWord = 'REDACTED';
+      
       if (room.guessedUsers.length === room.users.size - 1) {
         endTurn(roomId);
       }
