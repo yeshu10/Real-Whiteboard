@@ -3,41 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import GameControls from './GameControls';
 import ChatBox from './ChatBox';
+import WordSelection from './WordSelection';
+
 
 const socket = io('http://localhost:5000');
 
-// WordSelection component
-const WordSelection = ({ onWordSelect }) => {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-        <h3 className="text-xl font-bold mb-4 text-center">Select Word Difficulty</h3>
-        <div className="flex flex-col space-y-3">
-          <button 
-            onClick={() => onWordSelect('easy')}
-            className="bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg transition text-lg"
-          >
-            Easy
-          </button>
-          <button 
-            onClick={() => onWordSelect('medium')}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-lg transition text-lg"
-          >
-            Medium
-          </button>
-          <button 
-            onClick={() => onWordSelect('hard')}
-            className="bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-lg transition text-lg"
-          >
-            Hard
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// FlashMessage component
+   
 const FlashMessage = ({ message, duration = 2000 }) => {
   const [visible, setVisible] = useState(true);
 
@@ -148,18 +119,11 @@ const Canvas = () => {
     contextRef.current = context;
 
     // Join room
+    console.log('Joining room:', roomId, 'as user:', username);
     socket.emit('joinRoom', roomId, username);
 
-    // Game event listeners
-    // socket.on('userJoined', ({ users }) => {
-    //   setUsers(users);
-    //   console.log(users)
-    //   setMessages(prev => [...prev, {
-    //     isSystem: true,
-    //     message: `${users[socket.id]?.username} joined the game`
-    //   }]);
-    // });
     socket.on('userJoined', ({ users, newUser }) => {
+      console.log('User joined:', newUser?.username);
       setUsers(users);
       setMessages(prev => [
         ...prev,
@@ -170,8 +134,8 @@ const Canvas = () => {
       ]);
     });
     
-
     socket.on('userLeft', ({ users, username }) => {
+      console.log('User left:', username);
       setUsers(users);
       setMessages(prev => [...prev, {
         isSystem: true,
@@ -180,6 +144,13 @@ const Canvas = () => {
     });
 
     socket.on('roomState', ({ users, gameState, currentRound, currentWord, currentDrawer, timeLeft, maxRounds }) => {
+      console.log('Received room state:', {
+        gameState,
+        currentRound,
+        maxRounds,
+        currentDrawer: currentDrawer?.username,
+        timeLeft
+      });
       setUsers(users);
       setGameState(gameState);
       setCurrentRound(currentRound);
@@ -188,15 +159,15 @@ const Canvas = () => {
       setTimeLeft(timeLeft || 0);
       setIsDrawingTurn(socket.id === currentDrawer?.id);
       setScore(users[socket.id]?.score || 0);
-      setMaxRounds(maxRounds || 3);
+      setMaxRounds(maxRounds || 5);
       
-      // Clear canvas if it's our turn to draw
       if (socket.id === currentDrawer?.id && gameState === 'wordSelection') {
         clearCanvas();
       }
     });
     
     socket.on('gameStarted', ({ currentRound, currentDrawer, maxRounds }) => {
+      console.log('Game started - Round:', currentRound, 'of', maxRounds, 'Drawer:', currentDrawer?.username);
       setCurrentRound(currentRound);
       setMaxRounds(maxRounds);
       setCurrentDrawer(currentDrawer);
@@ -213,13 +184,13 @@ const Canvas = () => {
     });
 
     socket.on('turnStarted', ({ drawerId, drawerName }) => {
+      console.log('Turn started for:', drawerName);
       setCurrentDrawer({ id: drawerId, username: drawerName });
       setGameState('wordSelection');
       setCurrentWord('');
       setIsDrawingTurn(socket.id === drawerId);
       setHasGuessed(false);
       
-      // Clear canvas when turn starts
       clearCanvas();
       
       setMessages(prev => [...prev, {
@@ -229,6 +200,7 @@ const Canvas = () => {
     });
 
     socket.on('yourTurn', () => {
+      console.log('Your turn to draw');
       setIsDrawingTurn(true);
       setGameState('wordSelection');
       setMessages(prev => [...prev, {
@@ -239,6 +211,7 @@ const Canvas = () => {
     });
 
     socket.on('wordSelected', ({ word, drawerId, timeLeft }) => {
+      console.log('Word selected:', word, 'by drawer:', drawerId === socket.id ? 'you' : 'someone else');
       setCurrentWord(word);
       setGameState('drawing');
       setIsDrawingTurn(socket.id === drawerId);
@@ -247,10 +220,12 @@ const Canvas = () => {
     });
 
     socket.on('timerUpdate', (seconds) => {
+      console.log('Time left:', seconds);
       setTimeLeft(seconds);
     });
 
     socket.on('correctGuess', ({ username, points, users, isRoundOver }) => {
+      console.log('Correct guess by:', username, 'Round over:', isRoundOver);
       setUsers(users);
       setScore(users[socket.id]?.score || 0);
       setMessages(prev => [...prev, {
@@ -258,118 +233,74 @@ const Canvas = () => {
         message: `${username} guessed correctly! +${points} points`
       }]);
       
-      // Show flash message for correct guess
       setFlashMessage(`${username} guessed the word!`);
       setTimeout(() => setFlashMessage(null), 2000);
 
-      // If round is over, clear the word immediately
       if (isRoundOver) {
         setCurrentWord('');
       }
     });
 
     socket.on('newMessage', (msg) => {
+      console.log('New message:', msg);
       setMessages(prev => [...prev, msg]);
     });
 
-   
+// Add this useEffect to handle round transitions
 
-    // socket.on('roundEnded', ({ users, currentRound }) => {
-    //   setGameState('waiting');
-    //   setCurrentWord('');
-    //   setIsDrawingTurn(false);
-    //   setUsers(users);
-    //   setScore(users[socket.id]?.score || 0);
-    //   setMessages(prev => [...prev, {
-    //     isSystem: true,
-    //     message: `Round ${currentRound - 1} ended!`
-    //   }]);
-    
-    //   // Handle next round or game over
-    //   if (currentRound < maxRounds) {
-    //     setMessages(prev => [...prev, {
-    //       isSystem: true,
-    //       message: `Round ${currentRound} is starting!`
-    //     }]);
-    //     // Update UI for new round if necessary
-    //   } else {
-    //     setMessages(prev => [...prev, {
-    //       isSystem: true,
-    //       message: "Game Over! Final scores are being calculated."
-    //     }]);
-    //   }
-    // });
-    
-    
-    socket.on('roundEnded', ({ users, currentRound, maxRounds }) => {
-      setGameState('waiting'); // UI goes into waiting state between rounds
-      setCurrentWord('');
-      setIsDrawingTurn(false); // Reset drawing turn
-      setUsers(users); // Update users and scores
-      setScore(users[socket.id]?.score || 0);
-    
+
+// Modified roundEnded handler (just add the timeout)
+socket.on('roundEnded', ({ users, currentRound, maxRounds }) => {
+  console.log('Round ended - Current:', currentRound, 'Max:', maxRounds);
+  setGameState('waiting');
+  setCurrentWord('');
+  setIsDrawingTurn(false);
+  setUsers(users);
+  setCurrentRound(currentRound);
+  setMaxRounds(maxRounds);
+  
+  setMessages(prev => [
+    ...prev,
+    { isSystem: true, message: `Round ${currentRound-1} completed!` }
+  ]);
+
+  if (currentRound <= maxRounds) {
+    setTimeout(() => {
       setMessages(prev => [
         ...prev,
-        {
-          isSystem: true,
-          message: `Round ${currentRound} ended!`,
-        }
+        { isSystem: true, message: `Starting Round ${currentRound}...` }
       ]);
-    
-      // Check if more rounds are remaining
-      if (currentRound < maxRounds) {
-        setMessages(prev => [
-          ...prev,
-          {
-            isSystem: true,
-            message: `Preparing for Round ${currentRound + 1}...`,
-          }
-        ]);
-    
-        // Wait for server to emit `roundStarted` next
-      } else {
-        // All rounds completed
-        setMessages(prev => [
-          ...prev,
-          {
-            isSystem: true,
-            message: "🎉 Game Over! Final scores will be shown.",
-          }
-        ]);
-      }
-    });
-    
-    socket.on('roundStarted', ({ currentRound, drawerId }) => {
-      setGameState('playing'); // Switch to active game state
-      setCurrentWord(''); // Will be updated only for drawer
-      setCurrentRound(currentRound);
-    
-      if (socket.id === drawerId) {
-        // It's your turn to draw
-        setIsDrawingTurn(true);
-        setMessages(prev => [...prev, {
-          isSystem: true,
-          message: `🎨 Your turn to draw!`
-        }]);
-      } else {
-        // Someone else is drawing — show guessing input
-        setIsDrawingTurn(false);
-        setMessages(prev => [...prev, {
-          isSystem: true,
-          message: `🖌️ Waiting for ${drawerId} to draw...`
-        }]);
-      }
-    
-      // Optional: Clear canvas at the beginning of each round
-      if (canvasRef.current) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    });
-    
+    }, 1500); // 1.5s delay before next round starts
+  }
+});
 
+// Keep your existing roundStarted handler exactly as is
+
+// Enhanced roundStarted handler
+socket.on('roundStarted', ({ currentRound, currentDrawer, maxRounds }) => {
+  console.log('Round started - Round:', currentRound, 'Drawer:', currentDrawer?.username);
+  setGameState(currentDrawer?.id === socket.id ? 'wordSelection' : 'waiting');
+  setCurrentWord('');
+  setCurrentRound(currentRound);
+  setMaxRounds(maxRounds);
+  setCurrentDrawer(currentDrawer);
+  setIsDrawingTurn(currentDrawer?.id === socket.id);
+  setHasGuessed(false);
+  
+  if (currentDrawer?.id === socket.id) {
+    setMessages(prev => [...prev, {
+      isSystem: true,
+      message: "🎨 Your turn to draw!"
+    }]);
+  } else {
+    setMessages(prev => [...prev, {
+      isSystem: true,
+      message: `🖌️ Waiting for ${currentDrawer?.username} to draw...`
+    }]);
+  }
+});
     socket.on('gameEnded', (users) => {
+      console.log('Game ended, final scores:', users);
       setGameState('ended');
       setUsers(users);
       setScore(users[socket.id]?.score || 0);
@@ -380,6 +311,7 @@ const Canvas = () => {
           Object.values(users).map(u => `${u.username}: ${u.score}`).join(', ')
       }]);
     });
+
 
     // Drawing events
     socket.on('draw', (data) => {
@@ -415,6 +347,24 @@ const Canvas = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (gameState === 'waiting' && currentRound <= maxRounds) {
+      // This will help trigger the next round
+      console.log(`Ready for round ${currentRound}/${maxRounds}`);
+    }
+  }, [gameState, currentRound, maxRounds]);
+
+  // Add this useEffect to track state changes
+useEffect(() => {
+  console.log('Game State Update:', {
+    gameState,
+    currentRound,
+    maxRounds,
+    currentDrawer: currentDrawer?.username,
+    isDrawingTurn,
+    timeLeft
+  });
+}, [gameState, currentRound, maxRounds, currentDrawer, isDrawingTurn, timeLeft]);
   const handleStartGame = (rounds) => {
     socket.emit('startGame', roomId, rounds);
   };
@@ -493,8 +443,6 @@ const Canvas = () => {
 
   const closeWinnerModal = () => {
     setShowWinnerModal(false);
-    // Optionally navigate somewhere when modal is closed
-    // navigate('/');
   };
 
   return (

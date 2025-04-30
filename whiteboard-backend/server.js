@@ -50,7 +50,7 @@ io.on('connection', (socket) => {
         creator: socket.id,
         gameState: 'waiting',
         currentRound: 0,
-        maxRounds: 3, // Default value
+        maxRounds: 5, // Default value
         currentDrawerIndex: 0,
         playerOrder: [], // Track turn order
         timer: null,
@@ -103,27 +103,65 @@ io.on('connection', (socket) => {
   });
 
  
+  // socket.on('startGame', (roomId, maxRounds) => {
+  //   const room = gameRooms.get(roomId);
+  //   if (room && socket.id === room.creator && room.gameState === 'waiting') {
+  //     room.gameState = 'wordSelection';
+  //     room.currentRound = 1;
+  //     room.currentDrawerIndex = 0;
+  //     room.maxRounds = maxRounds;
+  //     resetUserStates(room);
+  
+  //     // Set first drawer (creator)
+  //     room.currentDrawer = room.users.get(room.creator);
+  
+  //     io.to(roomId).emit('gameStarted', { 
+  //       currentRound: room.currentRound,
+  //       maxRounds: room.maxRounds
+  //     });
+  
+  //     // Emit roundStarted here — important!
+  //     io.to(roomId).emit('roundStarted', {
+  //       currentRound: room.currentRound,
+  //       drawerId: room.currentDrawer.id
+  //     });
+  
+  //     // Notify first drawer
+  //     io.to(room.creator).emit('yourTurn');
+  //     io.to(roomId).emit('turnStarted', {
+  //       drawerId: room.creator,
+  //       drawerName: room.currentDrawer.username
+  //     });
+  
+  //     updateRoomState(roomId);
+  //   }
+  // });
+  
+
   socket.on('startGame', (roomId, maxRounds) => {
     const room = gameRooms.get(roomId);
     if (room && socket.id === room.creator && room.gameState === 'waiting') {
       room.gameState = 'wordSelection';
       room.currentRound = 1;
       room.currentDrawerIndex = 0;
-      room.maxRounds = maxRounds;
+      room.maxRounds = maxRounds || 5; // Ensure maxRounds is set
       resetUserStates(room);
   
       // Set first drawer (creator)
       room.currentDrawer = room.users.get(room.creator);
+      room.playerOrder = Array.from(room.users.keys()); // Reset player order
   
       io.to(roomId).emit('gameStarted', { 
         currentRound: room.currentRound,
-        maxRounds: room.maxRounds
+        maxRounds: room.maxRounds,
+        currentDrawer: room.currentDrawer
       });
   
-      // Emit roundStarted here — important!
+      // Start first turn
       io.to(roomId).emit('roundStarted', {
         currentRound: room.currentRound,
-        drawerId: room.currentDrawer.id
+        currentDrawer: room.currentDrawer,
+        maxRounds: room.maxRounds
       });
   
       // Notify first drawer
@@ -136,8 +174,6 @@ io.on('connection', (socket) => {
       updateRoomState(roomId);
     }
   });
-  
-
   socket.on('selectWord', ({ roomId, difficulty }) => {
     const room = gameRooms.get(roomId);
     const currentDrawer = getCurrentDrawer(room);
@@ -282,50 +318,121 @@ io.on('connection', (socket) => {
   }
 
   
-  function endTurn(roomId) {
-    const room = gameRooms.get(roomId);
-    if (!room) return;
+  // function endTurn(roomId) {
+  //   const room = gameRooms.get(roomId);
+  //   if (!room) return;
   
-    clearTimers(room);
+  //   clearTimers(room);
   
-    // Award points to the drawer
-    if (room.currentDrawer) {
-      const drawer = room.users.get(room.currentDrawer.id);
-      if (drawer) {
-        const correctGuesses = room.guessedUsers ? room.guessedUsers.length : 0;
-        drawer.score += correctGuesses * 20;
-      }
+  //   // Award points to the drawer
+  //   if (room.currentDrawer) {
+  //     const drawer = room.users.get(room.currentDrawer.id);
+  //     if (drawer) {
+  //       const correctGuesses = room.guessedUsers ? room.guessedUsers.length : 0;
+  //       drawer.score += correctGuesses * 20;
+  //     }
+  //   }
+  
+  //   // Move to next drawer
+  //   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.playerOrder.length;
+  
+  //   const isRoundComplete = room.currentDrawerIndex === 0;
+  
+  //   if (isRoundComplete) {
+  //     room.currentRound++;
+  
+  //     if (room.currentRound > room.maxRounds) {
+  //       // Game over
+  //       io.to(roomId).emit('gameEnded', getUsersArray(room));
+  //       gameRooms.delete(roomId);
+  //     } else {
+  //       // Start next round
+  //       room.gameState = 'waiting';
+  //       io.to(roomId).emit('roundEnded', {
+  //         users: getUsersArray(room),
+  //         currentRound: room.currentRound,
+  //       });
+  //     }
+  //   } else {
+  //     // Continue with next player's turn in the current round
+  //     startTurn(roomId);
+  //   }
+  
+  //   updateRoomState(roomId);
+  // }
+  
+ // Modified endTurn function
+// In the endTurn function - REPLACE with this:
+function endTurn(roomId) {
+  const room = gameRooms.get(roomId);
+  if (!room) return;
+
+  clearTimers(room);
+
+  // Award points to drawer
+  if (room.currentDrawer) {
+    const drawer = room.users.get(room.currentDrawer.id);
+    if (drawer) {
+      drawer.score += room.guessedUsers.length * 20;
     }
-  
-    // Move to next drawer
-    room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.playerOrder.length;
-  
-    const isRoundComplete = room.currentDrawerIndex === 0;
-  
-    if (isRoundComplete) {
-      room.currentRound++;
-  
-      if (room.currentRound > room.maxRounds) {
-        // Game over
-        io.to(roomId).emit('gameEnded', getUsersArray(room));
-        gameRooms.delete(roomId);
-      } else {
-        // Start next round
-        room.gameState = 'waiting';
-        io.to(roomId).emit('roundEnded', {
-          users: getUsersArray(room),
-          currentRound: room.currentRound,
-        });
-      }
-    } else {
-      // Continue with next player's turn in the current round
-      startTurn(roomId);
-    }
-  
-    updateRoomState(roomId);
   }
-  
-  
+
+  // Move to next drawer
+  room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.playerOrder.length;
+  const isRoundComplete = room.currentDrawerIndex === 0;
+
+  if (isRoundComplete) {
+    room.currentRound++;
+
+    if (room.currentRound > room.maxRounds) {
+      io.to(roomId).emit('gameEnded', getUsersArray(room));
+      gameRooms.delete(roomId);
+      return;
+    }
+
+    // Add this 2-second delay before starting next round
+    setTimeout(() => {
+      room.gameState = 'wordSelection';
+      room.currentDrawer = getCurrentDrawer(room);
+      resetUserStates(room);
+      
+      io.to(roomId).emit('roundStarted', {
+        currentRound: room.currentRound,
+        currentDrawer: room.currentDrawer,
+        maxRounds: room.maxRounds
+      });
+      
+      io.to(room.currentDrawer.id).emit('yourTurn');
+      updateRoomState(roomId);
+    }, 2000);
+  } else {
+    startTurn(roomId);
+  }
+}
+
+// New helper function
+function startNewRound(roomId) {
+  const room = gameRooms.get(roomId);
+  if (!room) return;
+
+  room.gameState = 'wordSelection';
+  resetUserStates(room);
+  room.currentDrawer = getCurrentDrawer(room);
+
+  io.to(roomId).emit('roundStarted', {
+    currentRound: room.currentRound,
+    currentDrawer: room.currentDrawer,
+    maxRounds: room.maxRounds
+  });
+
+  io.to(room.currentDrawer.id).emit('yourTurn');
+  io.to(roomId).emit('turnStarted', {
+    drawerId: room.currentDrawer.id,
+    drawerName: room.currentDrawer.username
+  });
+
+  updateRoomState(roomId);
+}
   function resetUserStates(room) {
     for (const user of room.users.values()) {
       user.hasGuessed = false;
@@ -357,7 +464,7 @@ io.on('connection', (socket) => {
       currentRound: room.currentRound,
       maxRounds: room.maxRounds,
       currentWord: room.currentWord,
-      currentDrawer: getCurrentDrawer(room),
+      currentDrawer: room.currentDrawer, // Ensure this is always an object
       timeLeft: room.timeLeft
     });
   }
