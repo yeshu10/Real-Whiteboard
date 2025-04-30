@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Game control events
+ 
   socket.on('startGame', (roomId, maxRounds) => {
     const room = gameRooms.get(roomId);
     if (room && socket.id === room.creator && room.gameState === 'waiting') {
@@ -111,25 +111,32 @@ io.on('connection', (socket) => {
       room.currentDrawerIndex = 0;
       room.maxRounds = maxRounds;
       resetUserStates(room);
-      
+  
       // Set first drawer (creator)
       room.currentDrawer = room.users.get(room.creator);
-      
+  
       io.to(roomId).emit('gameStarted', { 
         currentRound: room.currentRound,
         maxRounds: room.maxRounds
       });
-      
+  
+      // Emit roundStarted here — important!
+      io.to(roomId).emit('roundStarted', {
+        currentRound: room.currentRound,
+        drawerId: room.currentDrawer.id
+      });
+  
       // Notify first drawer
       io.to(room.creator).emit('yourTurn');
       io.to(roomId).emit('turnStarted', {
         drawerId: room.creator,
         drawerName: room.currentDrawer.username
       });
-      
+  
       updateRoomState(roomId);
     }
   });
+  
 
   socket.on('selectWord', ({ roomId, difficulty }) => {
     const room = gameRooms.get(roomId);
@@ -274,13 +281,14 @@ io.on('connection', (socket) => {
     updateRoomState(roomId);
   }
 
+  
   function endTurn(roomId) {
     const room = gameRooms.get(roomId);
     if (!room) return;
-    
+  
     clearTimers(room);
-    
-    // Award drawer points
+  
+    // Award points to the drawer
     if (room.currentDrawer) {
       const drawer = room.users.get(room.currentDrawer.id);
       if (drawer) {
@@ -288,77 +296,36 @@ io.on('connection', (socket) => {
         drawer.score += correctGuesses * 20;
       }
     }
-    
-    // Move to next player in order
+  
+    // Move to next drawer
     room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.playerOrder.length;
-    
-    // Check if round is complete (all players have drawn)
-    if (room.currentDrawerIndex === 0) {
-      // Round completed
-      if (room.currentRound >= room.maxRounds) {
+  
+    const isRoundComplete = room.currentDrawerIndex === 0;
+  
+    if (isRoundComplete) {
+      room.currentRound++;
+  
+      if (room.currentRound > room.maxRounds) {
+        // Game over
         io.to(roomId).emit('gameEnded', getUsersArray(room));
         gameRooms.delete(roomId);
       } else {
-        room.currentRound++;
+        // Start next round
         room.gameState = 'waiting';
         io.to(roomId).emit('roundEnded', {
           users: getUsersArray(room),
-          currentRound: room.currentRound
+          currentRound: room.currentRound,
         });
       }
     } else {
-      // Start next turn
+      // Continue with next player's turn in the current round
       startTurn(roomId);
     }
-    socket.on('roundEnded', ({ users, currentRound }) => {
-      const room = gameRooms.get(roomId);
-    
-      // Reset game state for UI
-      setGameState('waiting');
-      setCurrentWord('');
-      setIsDrawingTurn(false);
-      setUsers(users);
-      setScore(users[socket.id]?.score || 0);
-      setMessages(prev => [...prev, {
-        isSystem: true,
-        message: `Round ${currentRound - 1} ended!`
-      }]);
-    
-      // Check if there are more rounds to play
-      if (currentRound < room.maxRounds) {
-        // Move to next round
-        room.currentRound = currentRound + 1;
-        room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.users.size;
-        room.currentDrawer = room.users[room.currentDrawerIndex];
-        
-        // Emit event to notify everyone of the new round
-        io.to(roomId).emit('roundStarted', {
-          currentRound: room.currentRound,
-          drawerId: room.currentDrawer.id
-        });
-    
-        // Notify the next drawer it's their turn
-        io.to(room.creator).emit('yourTurn');
-        io.to(roomId).emit('turnStarted', {
-          drawerId: room.currentDrawer.id,
-          drawerName: room.currentDrawer.username
-        });
-    
-        // Update the room state
-        updateRoomState(roomId);
-    
-      } else {
-        // Game over: Emit final score and end the game
-        io.to(roomId).emit('gameOver', { 
-          finalScores: users,
-          message: "The game has ended! Final scores are calculated."
-        });
-      }
-    });
-    
+  
     updateRoomState(roomId);
   }
-
+  
+  
   function resetUserStates(room) {
     for (const user of room.users.values()) {
       user.hasGuessed = false;
@@ -1197,3 +1164,109 @@ server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // // Start Server
 // const PORT = process.env.PORT || 5000;
 // server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+
+ // // function endTurn(roomId) {
+  //   const room = gameRooms.get(roomId);
+  //   if (!room) return;
+    
+  //   clearTimers(room);
+    
+  //   // Award drawer points
+  //   if (room.currentDrawer) {
+  //     const drawer = room.users.get(room.currentDrawer.id);
+  //     if (drawer) {
+  //       const correctGuesses = room.guessedUsers ? room.guessedUsers.length : 0;
+  //       drawer.score += correctGuesses * 20;
+  //     }
+  //   }
+    
+  //   // Move to next player in order
+  //   room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.playerOrder.length;
+    
+  //   // Check if round is complete (all players have drawn)
+  //   if (room.currentDrawerIndex === 0) {
+  //     // Round completed
+  //     if (room.currentRound >= room.maxRounds) {
+  //       io.to(roomId).emit('gameEnded', getUsersArray(room));
+  //       gameRooms.delete(roomId);
+  //     } else {
+  //       room.currentRound++;
+  //       room.gameState = 'waiting';
+  //       io.to(roomId).emit('roundEnded', {
+  //         users: getUsersArray(room),
+  //         currentRound: room.currentRound
+  //       });
+  //     }
+  //   } else {
+  //     // Start next turn
+  //     startTurn(roomId);
+  //   }
+  //      updateRoomState(roomId);
+  // }
+
+  // socket.on('roundEnded', ({ roomId, users }) => {
+  //   const room = gameRooms.get(roomId);
+  //   if (!room) return;
+  
+  //   // Increment round and drawer index
+  //   if (room.currentRound < room.maxRounds) {
+  //     room.currentRound += 1;
+  //     room.currentDrawerIndex = (room.currentDrawerIndex + 1) % room.users.size;
+  
+  //     // Correctly get drawer from Map
+  //     const userArray = Array.from(room.users.values());
+  //     room.currentDrawer = userArray[room.currentDrawerIndex];
+  
+  //     // Notify players
+  //     io.to(roomId).emit('roundStarted', {
+  //       currentRound: room.currentRound,
+  //       drawerId: room.currentDrawer.id,
+  //     });
+  
+  //     // Tell the drawer to pick a word
+  //     io.to(room.currentDrawer.id).emit('yourTurn');
+  
+  //     // Broadcast turn started
+  //     io.to(roomId).emit('turnStarted', {
+  //       drawerId: room.currentDrawer.id,
+  //       drawerName: room.currentDrawer.username,
+  //     });
+  
+  //     updateRoomState(roomId);
+  //   } else {
+  //     // Game Over
+  //     io.to(roomId).emit('gameOver', {
+  //       finalScores: users,
+  //       message: "🎉 The game has ended! Final scores are calculated.",
+  //     });
+  //   }
+  // });
+   // Game control events
+  // socket.on('startGame', (roomId, maxRounds) => {
+  //   const room = gameRooms.get(roomId);
+  //   if (room && socket.id === room.creator && room.gameState === 'waiting') {
+  //     room.gameState = 'wordSelection';
+  //     room.currentRound = 1;
+  //     room.currentDrawerIndex = 0;
+  //     room.maxRounds = maxRounds;
+  //     resetUserStates(room);
+      
+  //     // Set first drawer (creator)
+  //     room.currentDrawer = room.users.get(room.creator);
+      
+  //     io.to(roomId).emit('gameStarted', { 
+  //       currentRound: room.currentRound,
+  //       maxRounds: room.maxRounds
+  //     });
+      
+  //     // Notify first drawer
+  //     io.to(room.creator).emit('yourTurn');
+  //     io.to(roomId).emit('turnStarted', {
+  //       drawerId: room.creator,
+  //       drawerName: room.currentDrawer.username
+  //     });
+      
+  //     updateRoomState(roomId);
+  //   }
+  // });

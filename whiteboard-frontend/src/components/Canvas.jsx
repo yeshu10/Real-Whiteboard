@@ -272,6 +272,8 @@ const Canvas = () => {
       setMessages(prev => [...prev, msg]);
     });
 
+   
+
     // socket.on('roundEnded', ({ users, currentRound }) => {
     //   setGameState('waiting');
     //   setCurrentWord('');
@@ -280,36 +282,93 @@ const Canvas = () => {
     //   setScore(users[socket.id]?.score || 0);
     //   setMessages(prev => [...prev, {
     //     isSystem: true,
-    //     message: `Round ${currentRound-1} ended!`
+    //     message: `Round ${currentRound - 1} ended!`
     //   }]);
-    // });
-
-    socket.on('roundEnded', ({ users, currentRound }) => {
-      setGameState('waiting');
-      setCurrentWord('');
-      setIsDrawingTurn(false);
-      setUsers(users);
-      setScore(users[socket.id]?.score || 0);
-      setMessages(prev => [...prev, {
-        isSystem: true,
-        message: `Round ${currentRound - 1} ended!`
-      }]);
     
-      // Handle next round or game over
+    //   // Handle next round or game over
+    //   if (currentRound < maxRounds) {
+    //     setMessages(prev => [...prev, {
+    //       isSystem: true,
+    //       message: `Round ${currentRound} is starting!`
+    //     }]);
+    //     // Update UI for new round if necessary
+    //   } else {
+    //     setMessages(prev => [...prev, {
+    //       isSystem: true,
+    //       message: "Game Over! Final scores are being calculated."
+    //     }]);
+    //   }
+    // });
+    
+    
+    socket.on('roundEnded', ({ users, currentRound, maxRounds }) => {
+      setGameState('waiting'); // UI goes into waiting state between rounds
+      setCurrentWord('');
+      setIsDrawingTurn(false); // Reset drawing turn
+      setUsers(users); // Update users and scores
+      setScore(users[socket.id]?.score || 0);
+    
+      setMessages(prev => [
+        ...prev,
+        {
+          isSystem: true,
+          message: `Round ${currentRound} ended!`,
+        }
+      ]);
+    
+      // Check if more rounds are remaining
       if (currentRound < maxRounds) {
-        setMessages(prev => [...prev, {
-          isSystem: true,
-          message: `Round ${currentRound} is starting!`
-        }]);
-        // Update UI for new round if necessary
+        setMessages(prev => [
+          ...prev,
+          {
+            isSystem: true,
+            message: `Preparing for Round ${currentRound + 1}...`,
+          }
+        ]);
+    
+        // Wait for server to emit `roundStarted` next
       } else {
-        setMessages(prev => [...prev, {
-          isSystem: true,
-          message: "Game Over! Final scores are being calculated."
-        }]);
+        // All rounds completed
+        setMessages(prev => [
+          ...prev,
+          {
+            isSystem: true,
+            message: "🎉 Game Over! Final scores will be shown.",
+          }
+        ]);
       }
     });
     
+    socket.on('roundStarted', ({ currentRound, drawerId }) => {
+      setGameState('playing'); // Switch to active game state
+      setCurrentWord(''); // Will be updated only for drawer
+      setCurrentRound(currentRound);
+    
+      if (socket.id === drawerId) {
+        // It's your turn to draw
+        setIsDrawingTurn(true);
+        setMessages(prev => [...prev, {
+          isSystem: true,
+          message: `🎨 Your turn to draw!`
+        }]);
+      } else {
+        // Someone else is drawing — show guessing input
+        setIsDrawingTurn(false);
+        setMessages(prev => [...prev, {
+          isSystem: true,
+          message: `🖌️ Waiting for ${drawerId} to draw...`
+        }]);
+      }
+    
+      // Optional: Clear canvas at the beginning of each round
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    });
+    
+
     socket.on('gameEnded', (users) => {
       setGameState('ended');
       setUsers(users);
