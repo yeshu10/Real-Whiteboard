@@ -8,7 +8,7 @@ const initialState = {
   messages: [],
   users: {},
   currentRound: 0,
-  maxRounds: 3,
+  maxRounds: 0,
   timeLeft: 0,
   currentDrawer: null
 };
@@ -36,6 +36,9 @@ const gameSlice = createSlice({
     setCurrentRound: (state, action) => {
       state.currentRound = action.payload;
     },
+    setMaxRounds: (state, action) => {
+      state.maxRounds = action.payload;
+    },
     setTimeLeft: (state, action) => {
       state.timeLeft = action.payload;
     },
@@ -54,6 +57,7 @@ export const {
   addMessage,
   setUsers,
   setCurrentRound,
+  setMaxRounds,
   setTimeLeft,
   setCurrentDrawer,
   resetGame

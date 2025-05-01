@@ -95,14 +95,7 @@ const GameControls = ({
       )}
       
       {/* Start Game Button */}
-      {/* {gameState === 'waiting' && isCreator && !gameStarted && (
-        <button
-          onClick={handleStartGame}
-          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded w-full"
-        >
-          Start Game
-        </button>
-      )} */}
+     
       {gameState === 'waiting' && isCreator && !gameStarted && (
         <button
           onClick={handleStartGame}
