@@ -41,6 +41,12 @@ io.on('connection', (socket) => {
 
   // Join a room with username
   socket.on('joinRoom', (roomId, username) => {
+    // Validate username
+    if (!username || typeof username !== 'string') {
+      socket.emit('error', 'Invalid username');
+      return;
+    }
+  
     socket.join(roomId);
     
     // Initialize room if it doesn't exist
@@ -50,9 +56,9 @@ io.on('connection', (socket) => {
         creator: socket.id,
         gameState: 'waiting',
         currentRound: 0,
-        maxRounds: 5, // Default value
+        maxRounds: 5,
         currentDrawerIndex: 0,
-        playerOrder: [], // Track turn order
+        playerOrder: [],
         timer: null,
         timerInterval: null,
         currentWord: null,
@@ -63,28 +69,36 @@ io.on('connection', (socket) => {
     }
     
     const room = gameRooms.get(roomId);
+    
+    // Prevent duplicate usernames
+    if (Array.from(room.users.values()).some(u => u.username === username)) {
+      socket.emit('error', 'Username already taken');
+      return;
+    }
+  
     room.users.set(socket.id, {
       id: socket.id,
       username,
       score: 0,
       hasGuessed: false
     });
-
-    // Update player order (first come first serve)
+  
+    // Update player order
     if (!room.playerOrder.includes(socket.id)) {
       room.playerOrder.push(socket.id);
     }
     
     console.log(`${username} joined room: ${roomId}`);
     
-    // Notify room about new user
+    // Send join notification with proper username
+    const drawer = room.users.get(room.playerOrder[room.currentDrawerIndex]);
     io.to(roomId).emit('newMessage', {
       isSystem: true,
-      username: 'System',
-      message: `${username} joined the room!`
+      username: drawer.username,
+      message: `${drawer.username}'s turn to draw!`
     });
     
-    // Send current room state to all users
+    // Update all clients with new room state
     updateRoomState(roomId);
   });
 
@@ -241,7 +255,6 @@ io.on('connection', (socket) => {
       io.to(roomId).emit('newMessage', {
         isSystem: true,
         username: 'System',
-        message: `${username} guessed the word!`
       });
       
       // Hide the word from future messages

@@ -27,9 +27,18 @@ const gameSlice = createSlice({
     setIsDrawingTurn: (state, action) => {
       state.isDrawingTurn = action.payload;
     },
-    addMessage: (state, action) => {
-      state.messages.push(action.payload);
-    },
+   // Modify your addMessage reducer:
+addMessage: (state, action) => {
+  const newMessage = action.payload;
+  // Check if message already exists
+  const exists = state.messages.some(msg => 
+    msg.message === newMessage.message && 
+    msg.username === newMessage.username
+  );
+  if (!exists) {
+    state.messages.push(newMessage);
+  }
+},
     setUsers: (state, action) => {
       state.users = action.payload;
     },
