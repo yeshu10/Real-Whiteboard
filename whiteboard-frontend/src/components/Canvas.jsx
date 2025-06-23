@@ -45,9 +45,28 @@ const WinnerModal = ({ users, onClose }) => {
   const sortedUsers = Object.values(users || {}).sort((a, b) => (b.score || 0) - (a.score || 0));
   const winner = sortedUsers[0];
 
+  // Handler for overlay click
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+      onClick={handleOverlayClick}
+      style={{ zIndex: 1000 }}
+    >
+      <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
+        {/* Cross icon */}
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-2xl text-gray-400 hover:text-gray-700 focus:outline-none"
+          aria-label="Close"
+        >
+          &times;
+        </button>
         <h3 className="text-3xl font-bold mb-6 text-center">Game Over!</h3>
         {winner && (
           <div className="text-center mb-6">
@@ -91,6 +110,7 @@ const Canvas = () => {
   const [lastPos, setLastPos] = useState(null);
   const [flashMessage, setFlashMessage] = useState(null);
   const [showWordSelection, setShowWordSelection] = useState(false);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
 
   // Redux state
   const dispatch = useDispatch();
@@ -387,6 +407,12 @@ const Canvas = () => {
     }
   }, [isDrawingTurn, gameState]);
 
+  useEffect(() => {
+    if (gameState === 'ended') {
+      setShowWinnerModal(true);
+    }
+  }, [gameState]);
+
   const handleStartGame = (rounds) => {
     socket.emit('startGame', roomId, rounds);
   };
@@ -465,8 +491,7 @@ const Canvas = () => {
   };
 
   const closeWinnerModal = () => {
-    // You can navigate away, reset game, or do nothing here
-    // For now, do nothing (modal will stay until game is restarted)
+    setShowWinnerModal(false);
   };
 
   return (
@@ -478,7 +503,7 @@ const Canvas = () => {
         <WordSelection onWordSelect={handleWordSelect} />
       )}
 
-      {gameState === 'ended' && (
+      {gameState === 'ended' && showWinnerModal && (
         <WinnerModal users={users} onClose={closeWinnerModal} />
       )}
 
