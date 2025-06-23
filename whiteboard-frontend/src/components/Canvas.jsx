@@ -90,7 +90,6 @@ const Canvas = () => {
   const [selectedColor, setSelectedColor] = useState('black');
   const [lastPos, setLastPos] = useState(null);
   const [flashMessage, setFlashMessage] = useState(null);
-  const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [showWordSelection, setShowWordSelection] = useState(false);
 
   // Redux state
@@ -322,7 +321,6 @@ const Canvas = () => {
       dispatch(setGameState('ended'));
       dispatch(setUsers(users));
       dispatch(setScore(users[socket.id]?.score || 0));
-      setShowWinnerModal(true);
       dispatch(addMessage({
         isSystem: true,
         message: 'Game ended! Final scores: ' + 
@@ -467,7 +465,8 @@ const Canvas = () => {
   };
 
   const closeWinnerModal = () => {
-    setShowWinnerModal(false);
+    // You can navigate away, reset game, or do nothing here
+    // For now, do nothing (modal will stay until game is restarted)
   };
 
   return (
@@ -479,7 +478,7 @@ const Canvas = () => {
         <WordSelection onWordSelect={handleWordSelect} />
       )}
 
-      {showWinnerModal && (
+      {gameState === 'ended' && (
         <WinnerModal users={users} onClose={closeWinnerModal} />
       )}
 
